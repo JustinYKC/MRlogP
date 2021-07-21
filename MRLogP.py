@@ -2,6 +2,7 @@ import sys
 import os
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold
 from sklearn.utils import shuffle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -132,12 +133,26 @@ class Model:
     def training(self, X_train, y_train, X_val, y_val, reapeats=2, epochs=1):
       with tf.device("cpu:0"): 
         for n in range(reapeats):
-            checkpointer = [ModelCheckpoint(os.path.join(self.work_dir, "model-"+str(n)+"-repeat_bestValidation_fromTraining.hdf5"), monitor='val_loss', verbose=0, save_best_only=True, mode='min')]
+            checkpointer = [ModelCheckpoint(os.path.join(self.work_dir, f"model_{n}-repeat_bestValidation_fromTraining.hdf5"), monitor='val_loss', verbose=0, save_best_only=True, mode='min')]
             history = self.classifier.fit(X_train, y_train, epochs=epochs, validation_data=(X_val, y_val), batch_size=self.chunksize, callbacks=[checkpointer])
             #classifier.save(os.path.join(current_dir, "model-"+str(no_model)+str(fold)+"_endTraining_beforeTL.hdf5"))
 
-    def cv(self):
-        pass
+    def cv(self, X_train, cv=10, epochs=1):
+        fold=0
+        kf = StratifiedKFold(n_splits=cv, shuffle=False)
+        for train_index, test_index in kf.split(X_train, y_class):
+            X_train_fold = X_train[train_index]
+            y_train_fold = y_train[train_index]
+            X_test_fold = X_train[test_index]
+            y_test_fold = y_train[test_index]
+            cpd_name_train_fold = cpd_name_train[train_index]
+            cpd_name_test_fold = cpd_name_train[test_index]
+            train_y_class, test_y_class = y_class[train_index], y_class[test_index]
+            print (X_train_fold.shape, y_train_fold.shape, cpd_name_train_fold.shape, X_test_fold.shape, y_test_fold.shape, cpd_name_test_fold.shape)
+            print (cpd_name_train_fold)
+            checkpointer = [ModelCheckpoint(os.path.join(self.work_dir, f"model_{fold}_bestValidation_fromCV.hdf5"), monitor='val_loss', verbose=0, save_best_only=True, mode='min')]
+            history = classifier.fit(X_train_fold, y_train_fold, epochs=epochs, validation_data=(X_test_fold, y_test_fold), batch_size=self.chunksize, callbacks=[checkpointer])
+
     def transfer_learning(self):
         pass
     def predict_logP(self):
@@ -148,7 +163,7 @@ class Model:
         return self.classifier
 
 def root_mean_squared_error(y_true, y_pred):
-        return K.sqrt(K.mean(K.square(y_pred - y_true)))
+    return K.sqrt(K.mean(K.square(y_pred - y_true)))
 def root_mean_squared_error_np(y_true, y_pred):
     return np.sqrt(np.mean(np.square(y_pred - y_true)))
 def rmse(y_true, y_pred):
