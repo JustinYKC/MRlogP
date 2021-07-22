@@ -20,7 +20,7 @@ from tensorflow.compat.v1.keras.callbacks import ModelCheckpoint
 from tensorflow.compat.v1.keras.layers import PReLU
 from tensorflow.compat.v1.keras.models import load_model
 
-class Dataset_maker():
+class Dataset_maker(object):
     def __init__(self):
         self.X = None
         self.y = None 
@@ -29,9 +29,9 @@ class Dataset_maker():
         self.cpd_name = None
         self.cpd_name_val = None
 
-    def create_training_set(self, input_file, val_split=0.1):
+    def create_training_set(self, infile_training, val_split=0.1):
      with tf.device("cpu:0"):
-        input_csv = pd.read_csv(input_file)
+        input_csv = pd.read_csv(infile_training)
         dataset = shuffle(input_csv)
         dataset[['id', 'logP']] = dataset.loc[:, "Name"].str.split(pat=',', expand=True)
         dataset[['logP', "-"]] = dataset.loc[:, "logP"].str.split(pat='_', expand=True)
@@ -77,9 +77,9 @@ class Dataset_maker():
         self.cpd_name_val = cpd_name_test_p
         return self.X, self.X_val, self.y, self.y_val, self.cpd_name, self.cpd_name_val, scaler
 
-    def create_testset(self, inputfile, sc):
+    def create_testset(self, infile_testing, sc):
      with tf.device("cpu:0"):
-        testset = pd.read_csv(inputfile)
+        testset = pd.read_csv(infile_testing)
         try:
             testset[['id', 'logP']] = testset.loc[:, "Name"].str.split(pat=';', expand=True)
         except:
@@ -98,7 +98,7 @@ class Dataset_maker():
         self.y = y
         return self.X, self.y
 
-class Model:
+class Model(object):
     def __init__(self, droprate=0.1, mid_h_layers=1, mid_h_nodes=1264, learning_rate=0.001, batch_size=32, working_dir="/home/justin/cnnLogP/logP-2021/dnn_training_tl_training_against_dlSet_2021/proportionalTestset_repeats/model_deployment/dnnLogP-2021-model_20210716_model_github"):
         self.droprate = droprate
         self.h_layers = mid_h_layers
@@ -130,14 +130,14 @@ class Model:
         self.classifier.summary()
         return self.classifier
 
-    def training(self, X_train, y_train, X_val, y_val, reapeats=2, epochs=1):
+    def training(self, X_train, y_train, X_val, y_val, repeats=2, epochs=1):
       with tf.device("cpu:0"): 
-        for n in range(reapeats):
+        for n in range(repeats):
             checkpointer = [ModelCheckpoint(os.path.join(self.work_dir, f"model_{n}-repeat_bestValidation_fromTraining.hdf5"), monitor='val_loss', verbose=0, save_best_only=True, mode='min')]
             history = self.classifier.fit(X_train, y_train, epochs=epochs, validation_data=(X_val, y_val), batch_size=self.chunksize, callbacks=[checkpointer])
             #classifier.save(os.path.join(current_dir, "model-"+str(no_model)+str(fold)+"_endTraining_beforeTL.hdf5"))
 
-    def cv(self, X_train, cv=10, epochs=1):
+    def cv(self, X_train, y_train, cv=10, epochs=1):
         fold=0
         kf = StratifiedKFold(n_splits=cv, shuffle=False)
         for train_index, test_index in kf.split(X_train, y_class):
@@ -151,11 +151,9 @@ class Model:
             print (X_train_fold.shape, y_train_fold.shape, cpd_name_train_fold.shape, X_test_fold.shape, y_test_fold.shape, cpd_name_test_fold.shape)
             print (cpd_name_train_fold)
             checkpointer = [ModelCheckpoint(os.path.join(self.work_dir, f"model_{fold}_bestValidation_fromCV.hdf5"), monitor='val_loss', verbose=0, save_best_only=True, mode='min')]
-            history = classifier.fit(X_train_fold, y_train_fold, epochs=epochs, validation_data=(X_test_fold, y_test_fold), batch_size=self.chunksize, callbacks=[checkpointer])
+            history = self.classifier.fit(X_train_fold, y_train_fold, epochs=epochs, validation_data=(X_test_fold, y_test_fold), batch_size=self.chunksize, callbacks=[checkpointer])
 
     def transfer_learning(self):
-        pass
-    def predict_logP(self):
         pass
     def load_predictor(self, model_file):
      with tf.device("cpu:0"):
@@ -164,30 +162,67 @@ class Model:
 
 def root_mean_squared_error(y_true, y_pred):
     return K.sqrt(K.mean(K.square(y_pred - y_true)))
-def root_mean_squared_error_np(y_true, y_pred):
-    return np.sqrt(np.mean(np.square(y_pred - y_true)))
+
 def rmse(y_true, y_pred):
     res=0
-    #print (y_true.shape, y_pred.shape)
     for i in range(len(y_true)):
-        #print (y_true[i], y_pred[i])
         res=res+((y_true[i]-y_pred[i])**2)
     res=res/len(y_true)
     res=res**0.5
     return res
-def main():
-    pass
+
+def main(infile_training, infile_testing, working_dir, model_file, train=False, transfer_learn=False, predict_logP=True, 
+         val_split=0.1, droprate_list=[0.1], hidden_layer_list=[1], hidden_node_list=[1264], learnrate_list=[0.001], chunksize_list=[32], epoch_list=[1], 
+         repeats=2, cv=None):
+    data = Dataset_maker()
+    X_train, X_val, y_train, y_val, _, _, scaler = data.create_training_set(infile_training=infile_training, val_split=val_split)
+    print (X_train.shape, X_val.shape, y_train.shape, y_val.shape)
+    if train:
+        if cv:
+            print ("CV")
+            pass
+        else:
+           all_com_list = [(droprate, mid_h_layer, mid_h_nodes, learning_rate, batch_size, epochs) for droprate in droprate_list for mid_h_layer in hidden_layer_list for mid_h_nodes in hidden_node_list for learning_rate in learnrate_list for batch_size in chunksize_list for epochs in epoch_list] 
+           all_com_dict = {index+1: ele for index, ele in enumerate(all_com_list)}
+           for index, para_list in all_com_dict.items():
+                print (f"Model: {index}")
+                model = Model(droprate=para_list[0], mid_h_layers=para_list[1], mid_h_nodes=para_list[2], learning_rate=para_list[3], batch_size=para_list[4], working_dir=working_dir)
+                classifier = model.build_model()
+                model.training(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, repeats=repeats, epochs=para_list[5])
+
+
+    #if transfer_learn:
+    if predict_logP:
+        data = Dataset_maker()
+        X_test, y_test= data.create_testset(infile_testing=infile_testing, sc=scaler)
+        model = Model(working_dir=working_dir)
+        classifier = model.load_predictor(model_file=model_file)
+        rmse_result = rmse(y_test, classifier.predict(X_test))
+        print (classifier.predict(X_test), classifier.predict(X_test).shape)
+        print (f"RMSE: {rmse_result}")
 
 if __name__ == "__main__":
     with tf.device("cpu:0"):
-        model = Model()
-        #classifier = model.build_model()
-        #print (classifier)
         data = Dataset_maker()
         X_train, X_val, y_train, y_val, _, _, sc = data.create_training_set("/home/justin/cnnLogP/logP-2021/dnn_training_tl_training_against_dlSet_2021/proportionalTestset_repeats/6/ds-descriptors-eMols201905-DL-500k-flat_FP4.csv")
         print (X_train.shape, X_val.shape, y_train.shape, y_val.shape)
 
-        #model.training(X_train, y_train, X_val, y_val)
+        #hidden_layer_list = [2,3,4]
+        hidden_layer_list = [2]
+        #hidden_node_list = [316, 474, 632, 1264]
+        hidden_node_list = [316]
+        #chunksize_list = [32, 64, 128]
+        chunksize_list = [32]
+        #epochs_list = [1, 2, 3, 5, 10, 15, 20, 25, 30, 35]
+        epochs_list = [1]
+        #droprate_list = [0.1, 0.2, 0.4]
+        droprate_list = [0.1]
+        #learnrate_list = [0.001, 0.0001]
+        learnrate_list = [0.001]
+        model = Model()
+        classifier = model.build_model()
+        #print (classifier)
+        model.training(X_train, y_train, X_val, y_val, repeats=1, epochs=1)
 
 
         #X_martel_dl, y_martel_dl = data.create_testset("/home/justin/cnnLogP/logP-2021/ds-descriptors-martel_FP4_qed_dl.csv", sc)
@@ -199,6 +234,11 @@ if __name__ == "__main__":
         classifier = model.load_predictor("/home/justin/cnnLogP/logP-2021/dnn_training_tl_training_against_dlSet_2021/transfer_learning_correct_2021/Architecture_1/model_294-2/4/model-tl-11.hdf5")
         rmse_result = rmse(y_physprop_dl, classifier.predict(X_physprop_dl))
         print (rmse_result)
-        r=root_mean_squared_error_np(y_physprop_dl, classifier.predict(X_physprop_dl))
-        print (K.eval(r))
-        #main()
+        #r=root_mean_squared_error_np(y_physprop_dl, classifier.predict(X_physprop_dl))
+        #print (K.eval(r))
+        main(infile_training="/home/justin/cnnLogP/logP-2021/dnn_training_tl_training_against_dlSet_2021/proportionalTestset_repeats/6/ds-descriptors-eMols201905-DL-500k-flat_FP4.csv", 
+             infile_testing="/home/justin/cnnLogP/logP-2021/ds-descriptors-physprop_3d_allowed_atoms_FP4_qed_dl.csv",
+             working_dir="/home/justin/cnnLogP/logP-2021/dnn_training_tl_training_against_dlSet_2021/proportionalTestset_repeats/model_deployment/dnnLogP-2021-model_20210716_model_github",
+             model_file="/home/justin/cnnLogP/logP-2021/dnn_training_tl_training_against_dlSet_2021/transfer_learning_correct_2021/Architecture_1/model_294-2/4/model-tl-11.hdf5", 
+             train=True, transfer_learn=False, predict_logP=True, val_split=0.1, droprate_list=[0.1], hidden_layer_list=[1], hidden_node_list=[1264], learnrate_list=[0.001], 
+             chunksize_list=[32], epoch_list=[1,2], repeats=3, cv=None)
