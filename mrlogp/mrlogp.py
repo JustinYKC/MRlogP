@@ -127,17 +127,26 @@ class MRlogP():
 
         return x, y
     
-    def _create_cv_set(self, X_train, y_train, cv=10):
-        fold=0
-        kf = StratifiedKFold(n_splits=cv, shuffle=False)
-        for train_index, test_index in kf.split(X_train, self.y_class):
-            X_train_fold = X_train[train_index]
-            y_train_fold = y_train[train_index]
-            X_val_fold = X_train[test_index]
-            y_val_fold = y_train[test_index]
+    def _create_cv_set(self, X_train:np.array, cv:int=10):
+        """
+        A private function used to generate train/validation indices to split data into n-folds (Default to 10 fold) by preserving the 
+        proportion of each logP class (1 class: 1 log unit) in each training/validation set.  
 
-            checkpointer = [ModelCheckpoint(os.path.join(self.work_dir, f"model_{fold}_bestValidation_fromCV.hdf5"), monitor='val_loss', verbose=0, save_best_only=True, mode='min')]
-            history = self.classifier.fit(X_train_fold, y_train_fold, epochs=epochs, validation_data=(X_val_fold, y_val_fold), batch_size=self.chunksize, callbacks=[checkpointer])
+        Parameters
+        ----------
+        X_train: (array, required)
+            Molecular descriptors used for training. 
+        
+        cv: (int, optional)
+            Number of folds. Default to 10.
+
+        Returns
+        -------
+        It returns a dictionary containing each fold index and its corresponding train/validation indince arrays in a tuple.
+        """
+        kf = StratifiedKFold(n_splits=cv, shuffle=False, random_state=None)
+        return {fold+1:split_index for fold, split_index in enumerate(kf.split(X_train, self.y_class))}
+
     def _handle_results(self, col): 
         pass
 
@@ -161,14 +170,15 @@ class MRlogP():
             The pathe of the Physprop_DL test set used to evaluate the model at the end of the training and transfer learning.
 
         val_split: (float, optional)    
-            The fraction to divide the dataset into the subset used for validation. Defaults to 0.1.
+            The fraction used to divide the dataset into a subset for validation in hyperparameter scan. Defaults to 0.1.
 
         hyperparameter_options: (dict, optional) 
-            A dictionary contrains set hyperparameters used to create models. Defaults set to the hyperparameters of our best 
-            model: (dropout=0.1, middle_hidden_layers=1, middle_hidden_nodes=1264, learning_rate=0.0001, batch_size=32, epochs=30)
+            A dictionary contrains set hyperparameters used to create models for hyperparameter scan, cross validation, 
+            and the final training. Defaults set to the hyperparameters of our best model: 
+            (dropout=0.1, middle_hidden_layers=1, middle_hidden_nodes=1264, learning_rate=0.0001, batch_size=32, epochs=30)
         
-        cv: (int, optionaal)
-
+        cv: (int, optional)
+            Number of folds. Default to 10.
 
         Returns
         -------
@@ -186,17 +196,24 @@ class MRlogP():
                 'batch_size':32,
                 'epochs':30,
                 }
-        #Hyperparameter scan:
+        # Hyperparameter scan:
         result_list 
         model = Model(droprate=hyperparameter_options['droprate'], mid_h_layers=hyperparameter_options['hidden_layers'], mid_h_nodes=hyperparameter_options['hidden_nodes'], learning_rate=hyperparameter_options['learning_rate'], batch_size=hyperparameter_options['batch_size'], working_dir=Path("data"))
-        #model.cv(X_train=X_train, y_train=y_train, cv=10, epochs=para_list[5])
         model.train(X_train, y_train, X_val, y_val, epochs=hyperparameter_options['epochs'])
         
-        #n-fold cv:
+        # N-fold cv:
         X_train, X_val, y_train, y_val, y_class = self.create_training_set(infile_training=large_dataset, val_split=0.0)
-        self._create_cv_set(X_train=X_train, y_train=y_train, cv=cv)
+        index_dict = self._create_cv_set(X_train=X_train, cv=cv)
+        for fold in index_dict.keys():
+            print (f"Performing {cv}-fold CV. Now carrying out: {fold} fold")
+            X_train_fold = X_train[index_dict[fold][0]]
+            y_train_fold = y_train[index_dict[fold][0]]
+            X_val_fold = X_train[index_dict[fold][1]]
+            y_val_fold = y_train[index_dict[fold][1]]
+            model = Model(droprate=hyperparameter_options['droprate'], mid_h_layers=hyperparameter_options['hidden_layers'], mid_h_nodes=hyperparameter_options['hidden_nodes'], learning_rate=hyperparameter_options['learning_rate'], batch_size=hyperparameter_options['batch_size'], working_dir=Path("data"))
+            model.train(X_train_fold, y_train_fold, X_val_fold, y_val_fold, epochs=hyperparameter_options['epochs'])
         
-        #Final training against the whole large dataset
+        # Final training against the whole large dataset
         self.train(X_train=X_train, y_train=y_train, epochs=hyperparameter_options['epochs'])
 
         # Load final model for testing against three druglike test sets
