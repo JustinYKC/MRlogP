@@ -1,6 +1,4 @@
-import sys 
-import os
-import time
+ import os
 from itertools import product as iterproduct
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -22,6 +20,7 @@ from tensorflow.compat.v1.keras.callbacks import ModelCheckpoint
 from tensorflow.compat.v1.keras.layers import PReLU
 from tensorflow.compat.v1.keras.models import load_model
 from pathlib import Path
+from .metrics import *
 from .mrlogp_model import Model
 
 class MRlogP():
@@ -34,6 +33,7 @@ class MRlogP():
     
     """   
     scaler=None
+    y_class=None
 
     def __init__(self) -> None:
         pass
@@ -76,13 +76,13 @@ class MRlogP():
         del dataset
 
         #Create validation set by sampling binned logP proportional to the logP bins in the training set
-        y_class = y
+        self.y_class = y
         for index, bin in enumerate(range (-5, 10, 1)):
             #print (f"{index}, {bin} <= bi < {bin+1}, {np.where((y_train >= bin) & (y_train < bin+1))}, {y_train[np.where((y_train >= bin) & (y_train < bin+1))]}, {len(y_train[np.where((y_train >= bin) & (y_train < bin+1))])}")
             X_train_sub = x[np.where((y >= bin) & (y < bin+1))]
             y_train_sub = y[np.where((y >= bin) & (y < bin+1))]
             cpd_id_sub = cpd_name[np.where((y >= bin) & (y < bin+1))]
-            y_class = np.where((y >= bin) & (y < bin+1), index, y_class)
+            self.y_class = np.where((y >= bin) & (y < bin+1), index, self.y_class)
             X_train_1, X_test_1, y_train_1, y_test_1, _, _ = train_test_split(X_train_sub, y_train_sub, cpd_id_sub, test_size=val_split, random_state=0)
             if index == 0:
                 X_train_p = X_train_1
@@ -95,7 +95,7 @@ class MRlogP():
                 y_train_p = np.concatenate((y_train_p, y_train_1)) 
                 y_test_p = np.concatenate((y_test_p, y_test_1))
 
-        return X_train_p, X_test_p, y_train_p, y_test_p, y_class
+        return X_train_p, X_test_p, y_train_p, y_test_p
 
     def create_testset(self, infile_testing:str):
         """
@@ -127,19 +127,21 @@ class MRlogP():
 
         return x, y
     
-    def cv(self, X_train, y_train, cv=10, epochs=1):
+    def _create_cv_set(self, X_train, y_train, cv=10):
         fold=0
-        y_class = Dataset_maker().y_class
         kf = StratifiedKFold(n_splits=cv, shuffle=False)
-        for train_index, test_index in kf.split(X_train, y_class):
+        for train_index, test_index in kf.split(X_train, self.y_class):
             X_train_fold = X_train[train_index]
             y_train_fold = y_train[train_index]
             X_val_fold = X_train[test_index]
             y_val_fold = y_train[test_index]
+
             checkpointer = [ModelCheckpoint(os.path.join(self.work_dir, f"model_{fold}_bestValidation_fromCV.hdf5"), monitor='val_loss', verbose=0, save_best_only=True, mode='min')]
             history = self.classifier.fit(X_train_fold, y_train_fold, epochs=epochs, validation_data=(X_val_fold, y_val_fold), batch_size=self.chunksize, callbacks=[checkpointer])
+    def _handle_results(self, col): 
+        pass
 
-    def train(self, large_dataset:Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, val_split:float, hyperparameter_options:dict=None):
+    def train(self, large_dataset:Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, val_split:float, hyperparameter_options:dict=None, cv:int=10):
         """
         Train the neural network models with the given hyperparameters using training set  
 
@@ -163,14 +165,17 @@ class MRlogP():
 
         hyperparameter_options: (dict, optional) 
             A dictionary contrains set hyperparameters used to create models. Defaults set to the hyperparameters of our best 
-            model (dropout=0.1, middle_hidden_layers=1, middle_hidden_nodes=1264, learning_rate=0.0001, batch_size=32, epochs=30)
+            model: (dropout=0.1, middle_hidden_layers=1, middle_hidden_nodes=1264, learning_rate=0.0001, batch_size=32, epochs=30)
+        
+        cv: (int, optionaal)
+
 
         Returns
         -------
         The RMSEs tested against the given test sets from hyperparameter scan, cross validation, final trianing and transfer learning. 
         These resulting RMSEs are also summarised in csv files. 
         """
-        X_train, X_val, y_train, y_val, y_class = self.create_training_set(infile_training=large_dataset, val_split=val_split)
+        X_train, X_val, y_train, y_val = self.create_training_set(infile_training=large_dataset, val_split=val_split)
         
         if hyperparameter_options is None:
             hyperparameter_options={
@@ -181,21 +186,40 @@ class MRlogP():
                 'batch_size':32,
                 'epochs':30,
                 }
-         
-            model = Model(droprate=hyperparameter_options['droprate'], mid_h_layers=hyperparameter_options['hidden_layers'], mid_h_nodes=hyperparameter_options['hidden_nodes'], learning_rate=hyperparameter_options['learning_rate'], batch_size=hyperparameter_options['batch_size'], working_dir=Path("data"))
-            #model.cv(X_train=X_train, y_train=y_train, cv=10, epochs=para_list[5])
-            model.train(X_train, y_train,X_val, y_val, epochs=hyperparameter_options['epochs'])
-            
-            
-            # XXX pass in Martel
-            
-            model.transfer_learning(X_train=X_train, y_train=y_train)
-    def trasfer_learning(self, pre_trained_model=Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, tl_parameter_options:dict=None):
+        #Hyperparameter scan:
+        result_list 
+        model = Model(droprate=hyperparameter_options['droprate'], mid_h_layers=hyperparameter_options['hidden_layers'], mid_h_nodes=hyperparameter_options['hidden_nodes'], learning_rate=hyperparameter_options['learning_rate'], batch_size=hyperparameter_options['batch_size'], working_dir=Path("data"))
+        #model.cv(X_train=X_train, y_train=y_train, cv=10, epochs=para_list[5])
+        model.train(X_train, y_train, X_val, y_val, epochs=hyperparameter_options['epochs'])
+        
+        #n-fold cv:
+        X_train, X_val, y_train, y_val, y_class = self.create_training_set(infile_training=large_dataset, val_split=0.0)
+        self._create_cv_set(X_train=X_train, y_train=y_train, cv=cv)
+        
+        #Final training against the whole large dataset
+        self.train(X_train=X_train, y_train=y_train, epochs=hyperparameter_options['epochs'])
+
+        # Load final model for testing against three druglike test sets
+        classifier = Model.load_predictor() #XXX
+        X_martel, y_martel = self.create_testset(small_precise_dataset)
+        X_reaxys, y_reaxys = self.create_testset(reaxys_dataset)
+        X_physprop, y_physprop = self.create_testset(physprop_dataset)
+        rmse_martel = rmse(y_martel, classifier.predict(X_martel))
+        rmse_reaxys = rmse(y_reaxys, classifier.predict(X_reaxys))
+        rmse_physprop = rmse(y_physprop, classifier.predict(X_physprop))
+        print (f"RMSE for Martel_DL: {rmse_martel}")
+        print (f"RMSE for Reaxys_DL: {rmse_reaxys}")
+        print (f"RMSE for Physprop_DL: {rmse_physprop}")
+
+
+        model.transfer_learning(X_train=X_train, y_train=y_train, cv=cv)
+    '''   
+    def transfer_learning(self, pre_trained_model=Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, tl_parameter_options:dict=None):
         #Transfer learning
         print ("\nPerforming transfer learning - Loading the pre-trained model")
         model = Model.load_from_file(Path("model.hdf5"))
         print ("\nPerforming transfer learning - Starting fine-tune")
-
+    '''
 if __name__ == "__main__":
     with tf.device("cpu:0"):
         main(infile_training="/home/justin/cnnLogP/logP-2021/dnn_training_tl_training_against_dlSet_2021/proportionalTestset_repeats/6/ds-descriptors-eMols201905-DL-500k-flat_FP4.csv", 
