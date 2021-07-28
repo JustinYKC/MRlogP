@@ -156,7 +156,11 @@ class Model(object):
             checkpointer = [ModelCheckpoint(os.path.join(self.work_dir, f"model_{fold}_bestValidation_fromCV.hdf5"), monitor='val_loss', verbose=0, save_best_only=True, mode='min')]
             history = self.classifier.fit(X_train_fold, y_train_fold, epochs=epochs, validation_data=(X_val_fold, y_val_fold), batch_size=self.chunksize, callbacks=[checkpointer])
 
+<<<<<<< HEAD
     def transfer_learning(self, X_train, y_train, epoch_1, epoch_2, lr_tl):
+=======
+    def transfer_learning(self, X_train, y_train, epoch_1, epoch_2, lr_on_tweaking):
+>>>>>>> bf070dc26d9e93248cdaa5610b6498c7866a8904
         #Create a new model by resuing all the layers but the output later from the base model  
         model_2_on_1 = Sequential(self.classifier.layers[:-1])
 
@@ -186,7 +190,11 @@ class Model(object):
         #model_2_on_1(training = True)
 
         #Compile the new model
+<<<<<<< HEAD
         opt = Adam(lr=lr_tl, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+=======
+        opt = Adam(lr=lr_on_tweaking, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+>>>>>>> bf070dc26d9e93248cdaa5610b6498c7866a8904
         model_2_on_1.compile(optimizer=opt, loss=[root_mean_squared_error], metrics=[root_mean_squared_error])
         model_2_on_1.summary()
 
