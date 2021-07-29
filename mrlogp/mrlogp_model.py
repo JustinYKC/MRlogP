@@ -89,7 +89,7 @@ class Model(object):
             history = self.classifier.fit(X_train, y_train, epochs=epochs, validation_data=(X_val, y_val), batch_size=self.chunksize, callbacks=[checkpointer])
 
     @staticmethod
-    def transfer_learning(self, X_train, y_train, epoch_1, epoch_2, lr_on_tweaking,_unfr_layer):
+    def transfer_learning(X_train, y_train, epoch_1, epoch_2, lr_on_tweaking,_unfr_layer):
         #Create a new model by resuing all the layers but the output later from the base model  
         model_2_on_1 = Sequential(self.classifier.layers[:-1])
 

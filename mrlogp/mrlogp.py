@@ -275,7 +275,7 @@ class MRlogP():
                 'batch_size':[32],
                 'epochs':[30],
                 }
-
+        
         print ("\nPerforming transfer learning - Loading the pre-trained model")
         classifier = Model.load_predictor(Path(pre_trained_model="model.hdf5")) #XXX
         print ("\nPerforming transfer learning - Starting fine-tune")
