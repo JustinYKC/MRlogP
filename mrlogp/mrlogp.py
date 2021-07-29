@@ -172,7 +172,7 @@ class MRlogP():
             result_df.to_csv("./hyperparameter_scan_result", index=True, index_label="Index")
         return result_df.sort_values("RMSE_BestVali").head(select_top).to_dict("records")
 
-    def train(self, large_dataset:Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, val_split:float, hyperparameter_options:dict=None, cv:int=10):
+    def train(self, large_dataset:Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, val_split:float, hyperparameter_options:dict=None, cv:int=10, tl_parameter_options:dict=None):
         """
         Train the neural network models with the given hyperparameters using training set  
 
@@ -265,19 +265,19 @@ class MRlogP():
         print (f"RMSE for Reaxys_DL: {rmse_reaxys}")
         print (f"RMSE for Physprop_DL: {rmse_physprop}")
 
-    '''   
-    def transfer_learning(self, pre_trained_model=Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, tl_parameter_options:dict=None):
         #Transfer learning
+        if tl_parameter_options is None:
+            tl_parameter_options = {
+                'droprate':[0.2],
+                'hidden_layers':[1],
+                'hidden_node':[1264],
+                'learning_rate':[0.0001],
+                'batch_size':[32],
+                'epochs':[30],
+                }
+
         print ("\nPerforming transfer learning - Loading the pre-trained model")
-        model = Model.load_from_file(Path("model.hdf5"))
+        classifier = Model.load_predictor(Path(pre_trained_model="model.hdf5")) #XXX
         print ("\nPerforming transfer learning - Starting fine-tune")
-        model.transfer_learning(X_train=X_train, y_train=y_train, cv=cv)
-    '''
-if __name__ == "__main__":
-    with tf.device("cpu:0"):
-        main(infile_training="/home/justin/cnnLogP/logP-2021/dnn_training_tl_training_against_dlSet_2021/proportionalTestset_repeats/6/ds-descriptors-eMols201905-DL-500k-flat_FP4.csv", 
-             infile_testing="/home/justin/cnnLogP/logP-2021/ds-descriptors-physprop_3d_allowed_atoms_FP4_qed_dl.csv",
-             working_dir="/home/justin/cnnLogP/logP-2021/dnn_training_tl_training_against_dlSet_2021/proportionalTestset_repeats/model_deployment/dnnLogP-2021-model_20210716_model_github",
-             model_file="/home/justin/cnnLogP/logP-2021/dnn_training_tl_training_against_dlSet_2021/transfer_learning_correct_2021/Architecture_1/model_294-2/4/model-tl-11.hdf5", 
-             train=True, transfer_learn=False, predict_logP=True, val_split=0.1, droprate_list=[0.1], hidden_layer_list=[1], hidden_node_list=[1264], learnrate_list=[0.001], 
-             chunksize_list=[32], epoch_list=[1,2], repeats=3, cv=None)
+        classifier.transfer_learning(X_train=X_martel, y_train=y_martel, )
+        X_train, y_train, epoch_1, epoch_2, lr_on_tweaking,_unfr_layer)
