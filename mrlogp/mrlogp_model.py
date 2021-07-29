@@ -63,7 +63,7 @@ class Model(object):
         self.classifier.summary()
         #return self.classifier
 
-    def train(self, X_train:np.array, y_train:np.array, X_val:np.array, y_val:np.array, epochs:int=30):
+    def train(self, X_train:np.array, y_train:np.array, X_val:np.array=None, y_val:np.array=None, epochs:int=30):
         """
         Train and validate models against the given training and validation set.
 
@@ -75,10 +75,10 @@ class Model(object):
         y_train: (array, required) 
             Labels used in training.
 
-        X_val: (array, required)
+        X_val: (None or array, optional)
             Molecular descriptors used for validation.
 
-        y_val: (array, required)
+        y_val: (None or array, optional)
             Labels used for validation.
 
         epochs: (int, optional)
@@ -127,6 +127,7 @@ class Model(object):
         model_2_on_1.fit(X_train, y_train, epochs=epoch_2)
         model_2_on_1.save("model-tl.hdf5")
 
+    @staticmethod
     def load_predictor(model_file:Path):
         # XXX Check if string, if so, cast to path, check file exists, if not raise error.
         with tf.device("cpu:0"):

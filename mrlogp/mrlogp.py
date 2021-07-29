@@ -1,4 +1,4 @@
- import os
+import os
 from itertools import product as iterproduct
 from numpy.lib.arraypad import _set_reflect_both
 from sklearn.preprocessing import StandardScaler
@@ -147,7 +147,24 @@ class MRlogP():
         kf = StratifiedKFold(n_splits=cv, shuffle=False, random_state=None)
         return {fold+1:split_index for fold, split_index in enumerate(kf.split(X_train, self.y_class))}
 
-    def _handle_results(self, result_dict:dict, select_top:int=20): 
+    def _handle_results(self, result_list:list, select_top:int=20):
+        """
+        A private function used to handle the results from hyperparameter scan, and fold cross validation; writting out the
+        resulting a csv file and selecting the best models for further training process.
+
+        Parameters
+        ----------
+        result_dict: (list, required)
+            A list contains the given model infomation and their results from hyperparameter scan and fold cross validation. Each 
+            model information and results is included in a dictionary.
+        
+        select_top: (int, optional)
+            Number for models selected for further training. Default to 20.
+
+        Returns
+        -------
+        It returns a list containing the model infomation required for further training course.
+        """
         result_df = pd.DataFrame(result_dict)
         if 'fold' in result_df.columns:
             result_df.to_csv("./cv_result.csv", index=True, index_label="Index")
@@ -201,6 +218,7 @@ class MRlogP():
                 'batch_size':[32],
                 'epochs':[30],
                 }
+
         # Hyperparameter scan:
         hyperparameter_options = [dict(zip(hyperparameter_options.keys(), ele)) for ele in iterproduct(*hyperparameter_options.values())]
         print (f"Scanning {len(hyperparameter_options)} hyperparameter combinations...")
