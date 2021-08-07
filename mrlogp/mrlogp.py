@@ -35,7 +35,27 @@ class MRlogP():
     """   
     scaler=None
     y_class=None
-
+    hyperparameter_options = {'droprate':[0.2], 
+                              'hidden_layers':[1],
+                              'hidden_nodes':[1264], 
+                              'learning_rate':[0.0001],
+                              'batch_size':[32,64], 
+                              'epochs':[2],
+                              }
+    '''
+    tl_parameter_options = {'epochs_for_output_layer':[1,2,3,4,5],
+                            'epoch_for_tweaking':[1,2,3,4,5],
+                            'learnrate_on_tweaking':[1.31E-5],
+                            'unfrozen_layers':[2,1],
+                            'batch_size':[64,128],
+                            }
+    '''
+    tl_parameter_options = {'epochs_for_output_layer':[1,2],
+                            'epoch_for_tweaking':[1,2],
+                            'learnrate_on_tweaking':[1.31E-5],
+                            'unfrozen_layers':[2,1],
+                            'batch_size':[64],
+                            }
     def __init__(self) -> None:
         pass
 
@@ -145,9 +165,9 @@ class MRlogP():
         It returns a dictionary containing each fold index and its corresponding train/validation indince arrays in a tuple.
         """
         kf = StratifiedKFold(n_splits=cv, shuffle=False, random_state=None)
-        return {fold+1:split_index for fold, split_index in enumerate(kf.split(X_train, self.y_class))}
+        return {fold:split_index for fold, split_index in enumerate(kf.split(X_train, self.y_class))}
 
-    def _handle_results(self, result_list:list, select_top:int=20):
+    def _handle_results(self, result_list:list, working_dir:Path):
         """
         A private function used to handle the results from hyperparameter scan, and fold cross validation; writting out the
         resulting a csv file and selecting the best models for further training process.
@@ -165,14 +185,25 @@ class MRlogP():
         -------
         It returns a list containing the model infomation required for further training course.
         """
-        result_df = pd.DataFrame(result_dict)
-        if 'fold' in result_df.columns:
-            result_df.to_csv("./cv_result.csv", index=True, index_label="Index")
-        else:
-            result_df.to_csv("./hyperparameter_scan_result", index=True, index_label="Index")
-        return result_df.sort_values("RMSE_BestVali").head(select_top).to_dict("records")
+        for index, each_model in enumerate(result_list):
+            try:
+                history_list = each_model["Results"]
+            except: break
+            for t, history in enumerate(history_list):
+                rmse_train = history.history['root_mean_squared_error'][-1]
+                col_name_rmse_train = f"RMSE_Train_{t+1}"
+                result_list[index][col_name_rmse_train] = rmse_train
+                try:
+                    rmse_best_val = history.history['root_mean_squared_error'][np.argmin(history.history['val_loss'])]
+                    col_name_rmse_bestvali = f"RMSE_BestVali_{t+1}"
+                    result_list[index][col_name_rmse_bestvali] = rmse_best_val
+                except: pass
+        result_df = pd.DataFrame(result_list)
+        if "Results" in result_df.columns: result_df.drop(columns='Results', inplace=True)
+        result_df.to_csv(Path(working_dir)/Path("result.csv"), index=True, index_label="Index")
+        #return result_df.sort_values("RMSE_BestVali").head(select_top).to_dict("records")
 
-    def train(self, large_dataset:Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, val_split:float, hyperparameter_options:dict=None, cv:int=10, tl_parameter_options:dict=None):
+    def train(self, large_dataset:Path, val_split:float=0.1, hyperparameter_options:dict=None, cv:int=None, working_dir:Path=Path("./")):
         """
         Train the neural network models with the given hyperparameters using training set  
 
@@ -207,77 +238,114 @@ class MRlogP():
         The RMSEs tested against the given test sets from hyperparameter scan, cross validation, final trianing and transfer learning. 
         These resulting RMSEs are also summarised in csv files. 
         """
-        X_train, X_val, y_train, y_val = self.create_training_set(infile_training=large_dataset, val_split=val_split)
-        
         if hyperparameter_options is None:
             hyperparameter_options = {
-                'droprate':[0.2],
-                'hidden_layers':[1],
-                'hidden_node':[1264],
-                'learning_rate':[0.0001],
-                'batch_size':[32],
-                'epochs':[30],
+                'droprate':0.2,
+                'hidden_layers':1,
+                'hidden_nodes':1264,
+                'learning_rate':0.0001,
+                'batch_size':32,
+                'epochs':30,
                 }
 
-        # Hyperparameter scan:
+        if cv:
+            X_train_t, _, y_train_t, _ = self.create_training_set(infile_training=large_dataset, val_split=val_split)
+            cv_index_dict = self._create_cv_set(X_train=X_train_t, cv=cv) 
+            times = cv
+        else: times = 1
+
+        history_list=[]
+        for i in range(times):
+            if cv:
+                X_train = X_train_t[cv_index_dict[i][0]]
+                y_train = y_train_t[cv_index_dict[i][0]]
+                X_val = X_train_t[cv_index_dict[i][1]]
+                y_val = y_train_t[cv_index_dict[i][1]]
+            else:
+                X_train, X_val, y_train, y_val = self.create_training_set(infile_training=large_dataset, val_split=val_split)
+            model = Model(droprate=hyperparameter_options['droprate'], mid_h_layers=hyperparameter_options['hidden_layers'], mid_h_nodes=hyperparameter_options['hidden_nodes'], learning_rate=hyperparameter_options['learning_rate'], batch_size=hyperparameter_options['batch_size'], working_dir=Path(working_dir))
+            history = model.train(X_train, y_train, X_val, y_val, epochs=hyperparameter_options['epochs'])
+            history_list.append(history)
+            del model, X_train, X_val, y_train, y_val
+        return history_list
+            
+    # Hyperparameter scan:
+    def hyerparameter_scan(self, Larget_dataset:Path, hyperparameter_options:dict=None, val_split:float=0.1, working_dir:Path=Path("./hyperparameter_scan")):
+        if hyperparameter_options is None:
+            hyperparameter_options = self.hyperparameter_options
         hyperparameter_options = [dict(zip(hyperparameter_options.keys(), ele)) for ele in iterproduct(*hyperparameter_options.values())]
-        print (f"Scanning {len(hyperparameter_options)} hyperparameter combinations...")
+        print (f"\nScanning {len(hyperparameter_options)} hyperparameter combinations...")
         for index, para_dict in enumerate(hyperparameter_options):
-            model = Model(droprate=para_dict['droprate'], mid_h_layers=para_dict['hidden_layers'], mid_h_nodes=para_dict['hidden_nodes'], learning_rate=para_dict['learning_rate'], batch_size=para_dict['batch_size'], working_dir=Path("data"))
-            history = model.train(X_train, y_train, X_val, y_val, epochs=para_dict['epochs'])
-            rmse_train = history.history['root_mean_squared_error'][-1]
-            rmse_best_val = history.history['root_mean_squared_error'][np.argmin(history.history['val_loss'])]
-            hyperparameter_options[index]["RMSE_Train"] = rmse_train
-            hyperparameter_options[index]["RMSE_BestVali"] = rmse_best_val
+            p = Path(working_dir/f"{index+1}")
+            p.mkdir(parents=True, exist_ok=True)
+            hist_results_list = self.train(large_dataset=Larget_dataset, hyperparameter_options=para_dict, val_split=val_split, working_dir=Path(working_dir/f"{index+1}"))
             hyperparameter_options[index]["Model"] = index+1
-        hyperparameter_options = self._handle_results(hyperparameter_options, 20)
+            hyperparameter_options[index]["Results"] = hist_results_list
+        self._handle_results(hyperparameter_options, working_dir)
         
-        # N-fold CV:
-        X_train, X_val, y_train, y_val = self.create_training_set(infile_training=large_dataset, val_split=0.0)
-        index_dict = self._create_cv_set(X_train=X_train, cv=cv)
-        print (f"Performing {cv}-fold CV...")
-        for fold in index_dict.keys():
-            X_train_fold = X_train[index_dict[fold][0]]
-            y_train_fold = y_train[index_dict[fold][0]]
-            X_val_fold = X_train[index_dict[fold][1]]
-            y_val_fold = y_train[index_dict[fold][1]]
-            for index, para_dict in enumerate(hyperparameter_options):
-                model = Model(droprate=hyperparameter_options['droprate'], mid_h_layers=hyperparameter_options['hidden_layers'], mid_h_nodes=hyperparameter_options['hidden_nodes'], learning_rate=hyperparameter_options['learning_rate'], batch_size=hyperparameter_options['batch_size'], working_dir=Path("data"))
-                history = model.train(X_train_fold, y_train_fold, X_val_fold, y_val_fold, epochs=hyperparameter_options['epochs'])
-                rmse_train = history.history['root_mean_squared_error'][-1]
-                rmse_best_val = history.history['root_mean_squared_error'][np.argmin(history.history['val_loss'])]
-                hyperparameter_options[index]["RMSE_Train"] = rmse_train
-                hyperparameter_options[index]["RMSE_BestVali"] = rmse_best_val
-                
-        
-        # Final training against the whole large dataset
-        self.train(X_train=X_train, y_train=y_train, epochs=hyperparameter_options['epochs'])
+    # N-fold CV:
+    def cv(self, larget_dataset:Path, hyperparameter_options:dict=None, cv:int=10, working_dir:Path=Path("./cv")):
+        if hyperparameter_options is None: hyperparameter_options = self.hyperparameter_options
+        hyperparameter_options = [dict(zip(hyperparameter_options.keys(), ele)) for ele in iterproduct(*hyperparameter_options.values())]
+        print (f"\nPerforming {cv}-fold CV...")
+        for index, para_dict in enumerate(hyperparameter_options):
+            p = Path(working_dir/f"{index+1}")
+            p.mkdir(parents=True, exist_ok=True)
+            hist_results_list = self.train(large_dataset=larget_dataset, hyperparameter_options=para_dict, val_split=0.0, cv=cv, working_dir=Path(working_dir/f"{index+1}"))
+            hyperparameter_options[index]["Model"] = index+1
+            hyperparameter_options[index]["Results"] = hist_results_list
+        self._handle_results(hyperparameter_options, working_dir)
+    
+    #Final train against full large dataset and then test three druglike test sets 
+    def final_train(self, larget_dataset:Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, model_path:Path, hyperparameter_options:dict=None, working_dir:Path=Path("./final_training")):
+        if hyperparameter_options is None: hyperparameter_options = self.hyperparameter_options
+        hyperparameter_options = [dict(zip(hyperparameter_options.keys(), ele)) for ele in iterproduct(*hyperparameter_options.values())]
+        print (f"\nTraining against full training set and then testing against three druglike sets...")
+        for index, para_dict in enumerate(hyperparameter_options):
+            p = Path(working_dir/f"{index+1}")
+            p.mkdir(parents=True, exist_ok=True)
+            hist_results_list = self.train(large_dataset=larget_dataset, hyperparameter_options=para_dict, val_split=0.0, working_dir=Path(working_dir/f"{index+1}"))
+            hyperparameter_options[index]["Model"] = index+1
+            hyperparameter_options[index]["Results"] = hist_results_list
 
         # Load final model for testing against three druglike test sets
-        classifier = Model.load_predictor() #XXX
+        classifier = Model.load_predictor(model_path) 
         X_martel, y_martel = self.create_testset(small_precise_dataset)
         X_reaxys, y_reaxys = self.create_testset(reaxys_dataset)
         X_physprop, y_physprop = self.create_testset(physprop_dataset)
-        rmse_martel = rmse(y_martel, classifier.predict(X_martel))
-        rmse_reaxys = rmse(y_reaxys, classifier.predict(X_reaxys))
-        rmse_physprop = rmse(y_physprop, classifier.predict(X_physprop))
-        print (f"RMSE for Martel_DL: {rmse_martel}")
-        print (f"RMSE for Reaxys_DL: {rmse_reaxys}")
-        print (f"RMSE for Physprop_DL: {rmse_physprop}")
+        rmse_martel = rmse(y_martel, classifier.predict(X_martel)).item(0)
+        rmse_reaxys = rmse(y_reaxys, classifier.predict(X_reaxys)).item(0)
+        rmse_physprop = rmse(y_physprop, classifier.predict(X_physprop)).item(0)
+        hyperparameter_options[index]["RMSE_Martel_DL"] = rmse_martel
+        hyperparameter_options[index]["RMSE_Reaxys_DL"] = rmse_reaxys
+        hyperparameter_options[index]["RMSE_Physprop_DL"] = rmse_physprop
+        self._handle_results(hyperparameter_options, working_dir)
+        print (f"RMSE for Martel_DL: {rmse_martel:.3f}")
+        print (f"RMSE for Reaxys_DL: {rmse_reaxys:.3f}")
+        print (f"RMSE for Physprop_DL: {rmse_physprop:.3f}")
 
-        #Transfer learning
-        if tl_parameter_options is None:
-            tl_parameter_options = {
-                'droprate':[0.2],
-                'hidden_layers':[1],
-                'hidden_node':[1264],
-                'learning_rate':[0.0001],
-                'batch_size':[32],
-                'epochs':[30],
-                }
-        
+    #Transfer learning
+    def transfer_learning(self, larget_dataset:Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, pre_trained_model:Path, tl_parameter_options:dict=None, working_dir:Path=Path("./transfer_learning")):
+        if tl_parameter_options is None: tl_parameter_options = self.tl_parameter_options
+        tl_parameter_options = [dict(zip(tl_parameter_options.keys(), ele)) for ele in iterproduct(*tl_parameter_options.values())]
         print ("\nPerforming transfer learning - Loading the pre-trained model")
-        classifier = Model.load_predictor(Path(pre_trained_model="model.hdf5")) #XXX
+        #model_1 = Model.load_predictor(Path(pre_trained_model))
+        _, _, _, _ = self.create_training_set(larget_dataset)
+        X_martel, y_martel = self.create_testset(small_precise_dataset)
+        X_reaxys, y_reaxys = self.create_testset(reaxys_dataset)
+        X_physprop, y_physprop = self.create_testset(physprop_dataset)        
+
         print ("\nPerforming transfer learning - Starting fine-tune")
-        classifier.transfer_learning(X_train=X_martel, y_train=y_martel, )
-        X_train, y_train, epoch_1, epoch_2, lr_on_tweaking,_unfr_layer)
+        for index, para_dict in enumerate(tl_parameter_options):
+            p = Path(working_dir/f"{index+1}")
+            p.mkdir(parents=True, exist_ok=True)
+            model = Model(working_dir = Path(working_dir/f"{index+1}"))
+            model.transfer_learning(X_martel, y_martel, pre_trained_model, para_dict["epochs_for_output_layer"], para_dict["epoch_for_tweaking"], para_dict["learnrate_on_tweaking"], para_dict["unfrozen_layers"], para_dict["batch_size"])
+
+            classifier_tl = Model.load_predictor(Path(working_dir/f"{index+1}"/"model-tl.hdf5"))
+            rmse_reaxys_tl = rmse(y_reaxys, classifier_tl.predict(X_reaxys)).item(0)
+            rmse_physprop_tl = rmse(y_physprop, classifier_tl.predict(X_physprop)).item(0)
+            tl_parameter_options[index]["Model"] = index+1
+            tl_parameter_options[index]["TL_RMSE_Reaxys_DL"] = rmse_reaxys_tl
+            tl_parameter_options[index]["TL_RMSE_Physprop_DL"] = rmse_physprop_tl
+        self._handle_results(tl_parameter_options, working_dir)
