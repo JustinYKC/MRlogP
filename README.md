@@ -1,7 +1,7 @@
 # MRlogP
 Neural network-based logP prediction for druglike molecules 
 
-MRlogP is a neural network-based predictor of logP using transfer learning techniques, first learning on a large amount of low accuracy predicted logP values before finally tuning our model using a small, accurate dataset of 244 druglike compounds. MRlogP is capable of outperforming state of the art freely available logP prediction methods for druglike small molecule, achieves an average RMSE of 0.988 and 0.715 against druglike molecules from Reaxys and PHYSPROP. 
+MRlogP is a neural network-based predictor of logP using transfer learning techniques, firstly learning on a large amount of low accuracy predicted logP values before finally tuning our model using a small, accurate dataset of 244 druglike compounds. MRlogP is capable of outperforming state of the art freely available logP prediction methods for druglike small molecules, achieving an average RMSE of 0.988 and 0.715 against druglike molecules from Reaxys and PHYSPROP datasets. 
 
 All associated code for MRlogP is freely available on GitHub to run locally and a simple and easy to use online web-based version is also provided at https://similaritylab.bio.ed.ac.uk/mrlogp. 
 
