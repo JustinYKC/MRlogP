@@ -23,7 +23,6 @@ from tensorflow.compat.v1.keras.models import load_model
 from pathlib import Path
 from .metrics import *
 from .mrlogp_model import Model
-from ..smi_to_logP_descriptors import MRLogPDescriptor_Generator
 
 class MRlogP():
     """
@@ -120,12 +119,15 @@ class MRlogP():
 
     def create_testset(self, infile_testing:str, query_mode:bool=False):
         """
-        Create a MRlogP test set
+        Create a MRlogP test set or the query format of compounds ready for the logP prediction.
 
         Parameters
         ----------
         infile_training: (str, required)
-            The path of the dataset for testing 
+            The path of the dataset for testing .
+
+        query_mode: (bool, optional)
+            Generate query format for compounds for logP predition if it is ture. Defaults to False.
 
         Returns
         -------
@@ -140,6 +142,7 @@ class MRlogP():
         x_ecfp4 = testset.loc[:, ["ecfp4-"+str(x) for x in range(128)]].astype('int64').astype('category').to_numpy()
         x_fp4 = testset.loc[:, ["fp4-"+str(x) for x in range(128)]].astype('int64').astype('category').to_numpy()
         x_usr = testset.loc[:, ["usrcat-"+str(x) for x in range(60)]].astype('float').to_numpy()
+        cpd_name = testset.loc[:, 'Name'].astype('str').to_numpy()
         if query_mode == False: y = testset.loc[:, 'logP'].astype('float').to_numpy()
 
         x_usr = self.scaler.transform(x_usr)
@@ -147,7 +150,7 @@ class MRlogP():
         del testset
 
         if query_mode == False: return x, y
-        else: return x
+        else: return x, cpd_name
     
     def _create_cv_set(self, X_train:np.array, cv:int=10):
         """
@@ -342,7 +345,7 @@ class MRlogP():
 
         Parameters
         ----------
-        Large_dataset: (File path object, required)
+        large_dataset: (File path object, required)
             The path of the dataset for training
 
         small_precise_dataset: (File path object, required)
@@ -399,7 +402,7 @@ class MRlogP():
 
         Parameters
         ----------
-        Large_dataset: (File path object, required)
+        large_dataset: (File path object, required)
             The path of the dataset for training
 
         small_precise_dataset: (File path object, required)
@@ -452,7 +455,23 @@ class MRlogP():
         self._handle_results(tl_parameter_options, working_dir)
 
     def predict_logp(self, larget_dataset:Path, query_csv_file:Path, model_path:Path):
+        """
+        Predict logP on query compounds using given model.    
+
+        Parameters
+        ----------
+        large_dataset: (File path object, required)
+            The path of the dataset for training.
+        
+        query_csv_file: (File path object, required)
+            The path of the query compound to be predicted.
+
+        model_path: (File path object, required)
+            The path of the model used as the predictor performing logP prediction.
+        """
         _, _, _, _ = self.create_training_set(larget_dataset)
-        X_query = self.create_testset(query_csv_file, True)
+        X_query, cpd_name_query = self.create_testset(query_csv_file, True)
         predictor = Model.load_predictor(model_path)
-        print (predictor.predict(X_query))
+        result_dictionary = dict(zip(cpd_name_query, predictor.predict(X_query).flatten(order='C')))
+        for key, value in result_dictionary.items():
+            print (f"\n{key}: {value:.3f}")
