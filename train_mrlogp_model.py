@@ -3,10 +3,6 @@ This program provides users with the procedures for easily doing the hyperparame
 This also allows users to use their own data set and hyperparameters in the procedures above. Other than training procedures, molecular logP can be 
 directly predicted by MRLogP using this program.
 
-The MRLogP package requires molecules represented by 3 sets of molecular
-descriptors.
-This requires OpenBabel The easiest way to do this is with:
-'conda install -c conda-forge openbabel'
 By Yan-Kai Chen- justin9300454@gmail.com
 """
 from mrlogp import MRlogP
@@ -16,7 +12,7 @@ import mrlogp as mr
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train MRlogP logP predictor")
-    parser.add_argument("large_dataset", help="Large set of MRlogP descriptors containing predicted logPs, names the 500k_DL set in the manuscript", default=Path("../encapsulated_version/data")/Path("ds_descriptors_500K_DL.csv"), nargs='?')
+    parser.add_argument("large_dataset", help="Large set of MRlogP descriptors containing predicted logPs, names the 500k_DL set in the manuscript", default=Path("./datasets")/Path("ds_descriptors_500K_DL.csv"), nargs='?')
     parser.add_argument("small_precise_dataset", help="Small set of MRlogP descriptors containing highly accurate (measured) logP values", default=Path("../encapsulated_version/data")/Path("ds_descriptors_martel_DL.csv"), nargs='?')
     parser.add_argument("reaxys_dataset", help="Physprop_DL dataset", default=Path("../encapsulated_version/data")/Path("ds_descriptors_reaxys_DL.csv"), nargs='?')
     parser.add_argument("physprop_dataset", help="Physprop_DL dataset", default=Path("../encapsulated_version/data")/Path("ds_descriptors_physprop_DL.csv"), nargs='?')
