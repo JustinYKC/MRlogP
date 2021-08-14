@@ -17,5 +17,14 @@ MRlogP requires the following packages:
 - TensorFlow (2.2.x)
 - Keras (2.2.x)
 
+# Usage
+Before using MRlogP, please make sure the training set cloned from the repo is uncompressed and merged into a complete csv file.
+
+A quickstart example for the prediction of logP on molecules in the example folder using MRlogP is as follows: 
+In terminal:
+```
+python train_mrlogp_model.py
+```
+
 # Authors
 MRlogP was written by Yan-Kai Chen (justin9300454@gmail.com)
