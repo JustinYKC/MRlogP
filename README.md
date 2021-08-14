@@ -5,7 +5,7 @@ MRlogP is a neural network-based predictor of logP using transfer learning techn
 
 All associated code for MRlogP is freely available on GitHub to run locally and a simple and easy to use online web-based version is also provided at https://similaritylab.bio.ed.ac.uk/mrlogp. 
 
-[MRlogP structure](https://raw.githubusercontent.com/JustinYKC/MRlogP/justin_upload/20210723_dnn_structure.png "MRlogP concept")
+[MRlogP structure](https://raw.githubusercontent.com/JustinYKC/MRlogP/justin_upload/20210723_dnn_structure.png)
 
 # Requirements
 MRlogP requires the following packages:
