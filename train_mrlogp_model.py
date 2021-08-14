@@ -1,3 +1,14 @@
+"""
+This program provides users with the procedures for easily doing the hyperparameter scan, cross validation, and transfer training using MRLogP package. 
+This also allows users to use their own data set and hyperparameters in the procedures above. Other than training procedures, molecular logP can be 
+directly predicted by MRLogP using this program.
+
+The MRLogP package requires molecules represented by 3 sets of molecular
+descriptors.
+This requires OpenBabel The easiest way to do this is with:
+'conda install -c conda-forge openbabel'
+By Yan-Kai Chen- justin9300454@gmail.com
+"""
 from mrlogp import MRlogP
 import argparse
 from pathlib import Path
@@ -12,6 +23,7 @@ if __name__ == "__main__":
     parser.add_argument("training_test_split", help="Fraction for splitting a subset from training set for validation", type=float, default=0.1, nargs='?')
     parser.add_argument("cv", help="Number of folds for cross validation", type=int, default=10, nargs='?')
     parser.add_argument("model_file", help="Model file for an exsisting model", default=Path("../../../final_training_against_whole_trainingset/3")/Path("model-79-6-302_endTraining_beforeTL.hdf5"), nargs='?')
+    parser.add_argument("query_file", help="Descriptor file of query compounds for logP prediction", default=Path(), nargs='?')
     #parser.add_argument("working_dir", help="The directory where the relevant output files will save", default={a})
     args = parser.parse_args()
     mrlogp=MRlogP()
@@ -28,3 +40,6 @@ if __name__ == "__main__":
     
     #Transfer learning 
     mrlogp.transfer_learning(args.large_dataset, args.small_precise_dataset, args.reaxys_dataset, args.physprop_dataset, args.model_file)
+
+    #Predict molecular logP
+    mrlogp.predict_logp(args.large_dataset, args.query_file, args.model_file)
