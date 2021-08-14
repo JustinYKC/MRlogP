@@ -23,6 +23,7 @@ from tensorflow.compat.v1.keras.models import load_model
 from pathlib import Path
 from .metrics import *
 from .mrlogp_model import Model
+from ..smi_to_logP_descriptors import MRLogPDescriptor_Generator
 
 class MRlogP():
     """
@@ -117,7 +118,7 @@ class MRlogP():
 
         return X_train_p, X_test_p, y_train_p, y_test_p
 
-    def create_testset(self, infile_testing:str):
+    def create_testset(self, infile_testing:str, query_mode:bool=False):
         """
         Create a MRlogP test set
 
@@ -131,21 +132,22 @@ class MRlogP():
         It returns two arrays repesenting features and labels for testing.
         """
         testset = pd.read_csv(infile_testing)
-        try:
-            testset[['id', 'logP']] = testset.loc[:, "Name"].str.split(pat=';', expand=True)
-        except:
-            testset['logP'] = testset.loc[:, "Name"]
+        if query_mode == False:
+            try: testset[['id', 'logP']] = testset.loc[:, "Name"].str.split(pat=';', expand=True)
+            except: testset['logP'] = testset.loc[:, "Name"]
+        else: testset['id'] = testset.loc[:, "Name"]
 
         x_ecfp4 = testset.loc[:, ["ecfp4-"+str(x) for x in range(128)]].astype('int64').astype('category').to_numpy()
         x_fp4 = testset.loc[:, ["fp4-"+str(x) for x in range(128)]].astype('int64').astype('category').to_numpy()
         x_usr = testset.loc[:, ["usrcat-"+str(x) for x in range(60)]].astype('float').to_numpy()
-        y = testset.loc[:, 'logP'].astype('float').to_numpy()
+        if query_mode == False: y = testset.loc[:, 'logP'].astype('float').to_numpy()
 
         x_usr = self.scaler.transform(x_usr)
         x = np.hstack([x_ecfp4, x_fp4, x_usr])
         del testset
 
-        return x, y
+        if query_mode == False: return x, y
+        else: return x
     
     def _create_cv_set(self, X_train:np.array, cv:int=10):
         """
@@ -205,38 +207,32 @@ class MRlogP():
 
     def train(self, large_dataset:Path, val_split:float=0.1, hyperparameter_options:dict=None, cv:int=None, working_dir:Path=Path("./")):
         """
-        Train the neural network models with the given hyperparameters using training set  
+        Train the neural network models with given training set and the hyperparameters.  
 
         Parameters
         ----------
-        Large_dataset: (File path object, required)
+        large_dataset: (File path object, required)
             The path of the dataset for training
-        
-        small_precise_dataset: (File path object, required)
-            The path of the dataset containing high quality measured logPs (i.e. Martel_DL). This dataset is used for testing at 
-            the end of the training and for transfer learning. 
-
-        reaxys_dataset: (File path object, required)
-            The path of the Reaxys_DL test set used to evaluate the model at the end of the training and transfer learning.
-
-        physprop_dataset: (File path object, required)
-            The pathe of the Physprop_DL test set used to evaluate the model at the end of the training and transfer learning.
 
         val_split: (float, optional)    
             The fraction used to divide the dataset into a subset for validation in hyperparameter scan. Defaults to 0.1.
 
         hyperparameter_options: (dict, optional) 
             A dictionary contrains set hyperparameters used to create models for hyperparameter scan, cross validation, 
-            and the final training. Defaults set to the hyperparameters of our best model: 
+            and the final training. Defaults set to None which then diectly uses the hyperparameters of our best model: 
             (dropout=0.1, middle_hidden_layers=1, middle_hidden_nodes=1264, learning_rate=0.0001, batch_size=32, epochs=30)
         
         cv: (int, optional)
-            Number of folds. Default to 10.
+            Number of folds splitted for the use of cross validation. Default to None. 
+
+        working_dir: (File path object, optional)
+            The path where outputs the relevant results, including a csv file for results of hyperparameter scan, cross 
+            validation and hdf5 files for saved models.
 
         Returns
         -------
-        The RMSEs tested against the given test sets from hyperparameter scan, cross validation, final trianing and transfer learning. 
-        These resulting RMSEs are also summarised in csv files. 
+        The trainig history from the process of the hyperparameter scan, cross validation, final trianing and transfer 
+        learning. These resulting RMSEs are also summarised in csv files. 
         """
         if hyperparameter_options is None:
             hyperparameter_options = {
@@ -271,6 +267,27 @@ class MRlogP():
             
     # Hyperparameter scan:
     def hyerparameter_scan(self, Larget_dataset:Path, hyperparameter_options:dict=None, val_split:float=0.1, working_dir:Path=Path("./hyperparameter_scan")):
+        """
+        Perform hyperparameter scan with given a set of hyperparameter combinations using gird search.   
+
+        Parameters
+        ----------
+        large_dataset: (File path object, required) 
+            The path of the dataset for performing hyperparameter scan
+        
+        hyperparameter_options: (dict, optional)
+            A dictionary contrains set hyperparameters used to perform hyperparameter scan. Defaults set to None which then
+            diectly uses the hyperparameters of our best model: 
+            (dropout=0.1, middle_hidden_layers=1, middle_hidden_nodes=1264, learning_rate=0.0001, batch_size=32, epochs=30)
+
+        val_split: (float, optional)    
+            The fraction used to divide the dataset into a subset for validation in hyperparameter scan. Defaults to 0.1.
+
+        working_dir: (File path object, optional)
+            The path where outputs the results of hyperarameter scan, including a csv file for results of hyperparameter scan, 
+            and hdf5 files for the models trained with each scaned hyperparameter set. Defaults set to the directory of 
+            "./hyperparameter_scan".
+        """
         if hyperparameter_options is None:
             hyperparameter_options = self.hyperparameter_options
         hyperparameter_options = [dict(zip(hyperparameter_options.keys(), ele)) for ele in iterproduct(*hyperparameter_options.values())]
@@ -285,6 +302,27 @@ class MRlogP():
         
     # N-fold CV:
     def cv(self, larget_dataset:Path, hyperparameter_options:dict=None, cv:int=10, working_dir:Path=Path("./cv")):
+        """
+        Perform cross validation with given a set of hyperparameter combinations.   
+
+        Parameters
+        ----------
+        large_dataset: (File path object, required) 
+            The path of the dataset for performing hyperparameter scan
+        
+        hyperparameter_options: (dict, optional)
+            A dictionary contrains set hyperparameters used to perform cross validation. Defaults set to None which then
+            diectly uses the hyperparameters of our best model: 
+            (dropout=0.1, middle_hidden_layers=1, middle_hidden_nodes=1264, learning_rate=0.0001, batch_size=32, epochs=30)
+
+        cv: (float, optional)    
+            Number of folds splitted for the use of cross validation. Default to 10 folds.
+
+        working_dir: (File path object, optional)
+            The path where outputs the results of cross validation, including a csv file for results of cross validation,  
+            hdf5 files for the models of each fold trained with each the given hyperparameter combination. Defaults set 
+            to the directory of  "./cv".
+        """
         if hyperparameter_options is None: hyperparameter_options = self.hyperparameter_options
         hyperparameter_options = [dict(zip(hyperparameter_options.keys(), ele)) for ele in iterproduct(*hyperparameter_options.values())]
         print (f"\nPerforming {cv}-fold CV...")
@@ -298,6 +336,36 @@ class MRlogP():
     
     #Final train against full large dataset and then test three druglike test sets 
     def final_train(self, larget_dataset:Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, model_path:Path, hyperparameter_options:dict=None, working_dir:Path=Path("./final_training")):
+        """
+        Train the neural network models with the given hyperparameters against the full training set (None subset splitted
+        for validation). The resulting model is then tested against 3 druglike data sets.
+
+        Parameters
+        ----------
+        Large_dataset: (File path object, required)
+            The path of the dataset for training
+
+        small_precise_dataset: (File path object, required)
+            The path of the dataset containing high quality measured logPs (i.e. Martel_DL). This dataset is used for testing 
+            at the end of the training and for transfer learning. 
+
+        reaxys_dataset: (File path object, required)
+            The path of the Reaxys_DL test set used to evaluate the model at the end of the training and transfer learning.
+
+        physprop_dataset: (File path object, required)
+            The pathe of the Physprop_DL test set used to evaluate the model at the end of the training and transfer learning.
+        
+        hyperparameter_options: (dict, optional)
+            A dictionary contrains set hyperparameters used to perform the final training. Defaults set to None which then
+            diectly uses the hyperparameters of our best model: 
+            (dropout=0.1, middle_hidden_layers=1, middle_hidden_nodes=1264, learning_rate=0.0001, batch_size=32, epochs=30)
+        
+        working_dir: (File path object, optional)
+            The path where outputs the results of the final training, including a csv file for results of the final training, 
+            and the test RMSEs of the resulting model against the 3 druglike datasets. The hdf5 file for the final model 
+            trained with the given hyperparameter combination is also placed here. Defaults set to the directory of 
+            "./final_training".
+        """
         if hyperparameter_options is None: hyperparameter_options = self.hyperparameter_options
         hyperparameter_options = [dict(zip(hyperparameter_options.keys(), ele)) for ele in iterproduct(*hyperparameter_options.values())]
         print (f"\nTraining against full training set and then testing against three druglike sets...")
@@ -309,13 +377,13 @@ class MRlogP():
             hyperparameter_options[index]["Results"] = hist_results_list
 
         # Load final model for testing against three druglike test sets
-        classifier = Model.load_predictor(model_path) 
+        predictor = Model.load_predictor(model_path) 
         X_martel, y_martel = self.create_testset(small_precise_dataset)
         X_reaxys, y_reaxys = self.create_testset(reaxys_dataset)
         X_physprop, y_physprop = self.create_testset(physprop_dataset)
-        rmse_martel = rmse(y_martel, classifier.predict(X_martel)).item(0)
-        rmse_reaxys = rmse(y_reaxys, classifier.predict(X_reaxys)).item(0)
-        rmse_physprop = rmse(y_physprop, classifier.predict(X_physprop)).item(0)
+        rmse_martel = rmse(y_martel, predictor.predict(X_martel)).item(0)
+        rmse_reaxys = rmse(y_reaxys, predictor.predict(X_reaxys)).item(0)
+        rmse_physprop = rmse(y_physprop, predictor.predict(X_physprop)).item(0)
         hyperparameter_options[index]["RMSE_Martel_DL"] = rmse_martel
         hyperparameter_options[index]["RMSE_Reaxys_DL"] = rmse_reaxys
         hyperparameter_options[index]["RMSE_Physprop_DL"] = rmse_physprop
@@ -326,6 +394,39 @@ class MRlogP():
 
     #Transfer learning
     def transfer_learning(self, larget_dataset:Path, small_precise_dataset:Path, reaxys_dataset:Path, physprop_dataset:Path, pre_trained_model:Path, tl_parameter_options:dict=None, working_dir:Path=Path("./transfer_learning")):
+        """
+        Carry out transfer learning on a pre-trained model with given a set of transfer learning hyperparameters.    
+
+        Parameters
+        ----------
+        Large_dataset: (File path object, required)
+            The path of the dataset for training
+
+        small_precise_dataset: (File path object, required)
+            The path of the dataset containing high quality measured logPs (i.e. Martel_DL). This dataset is used to futher
+            tweak the pre-trained model for higher prediction performance. 
+
+        reaxys_dataset: (File path object, required)
+            The path of the Reaxys_DL test set used to evaluate the model at the end of the transfer learning.
+
+        physprop_dataset: (File path object, required)
+            The path of the Physprop_DL test set used to evaluate the model at the end of the transfer learning.
+
+        pre_trainied_model: (File path object, required)
+            The path of the pre-trained model needed for transfer learing.
+        
+        tl_parameter_options: (dict, optional)
+            A dictionary contrains set hyperparameters used to perform transfer learning. Defaults set to None which then
+            diectly provide the hyperparameters used in our case for tuning the pre-trained model to get MRlogP:
+            (epochs_for_output_layer':[1,2,3,4,5], 'epoch_for_tweaking':[1,2,3,4,5], 'learnrate_on_tweaking':[1.31E-5],
+             'unfrozen_layers':[2,1],'batch_size':[64,128]).
+
+        working_dir: (File path object, optional)
+            The path where outputs the results of transfer learning, including a csv file for results of transfer training, 
+            and the test RMSEs of the resulting model against the 3 druglike datasets.The hdf5 file for the model 
+            transfer trained with the each of given hyperparameter combinations. Defaults set to the directory of 
+            "./transfer_learning".
+        """
         if tl_parameter_options is None: tl_parameter_options = self.tl_parameter_options
         tl_parameter_options = [dict(zip(tl_parameter_options.keys(), ele)) for ele in iterproduct(*tl_parameter_options.values())]
         print ("\nPerforming transfer learning - Loading the pre-trained model")
@@ -349,3 +450,9 @@ class MRlogP():
             tl_parameter_options[index]["TL_RMSE_Reaxys_DL"] = rmse_reaxys_tl
             tl_parameter_options[index]["TL_RMSE_Physprop_DL"] = rmse_physprop_tl
         self._handle_results(tl_parameter_options, working_dir)
+
+    def predict_logp(self, larget_dataset:Path, query_csv_file:Path, model_path:Path):
+        _, _, _, _ = self.create_training_set(larget_dataset)
+        X_query = self.create_testset(query_csv_file, True)
+        predictor = Model.load_predictor(model_path)
+        print (predictor.predict(X_query))
