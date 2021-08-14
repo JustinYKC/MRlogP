@@ -16,7 +16,7 @@ import mrlogp as mr
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train MRlogP logP predictor")
-    parser.add_argument("large_dataset", help="Large set of MRlogP descriptors containing predicted logPs, names the 500k_DL set in the manuscript", default=Path("../encapsulated_version/data")/Path("ds_descriptors_500K_DL.csv"), nargs='?')
+    parser.add_argument("large_dataset", help="Large set of MRlogP descriptors containing predicted logPs, names the 500k_DL set in the manuscript", default=Path("./datasets")/Path("ds_descriptors_500K_DL.csv"), nargs='?')
     parser.add_argument("small_precise_dataset", help="Small set of MRlogP descriptors containing highly accurate (measured) logP values", default=Path("../encapsulated_version/data")/Path("ds_descriptors_martel_DL.csv"), nargs='?')
     parser.add_argument("reaxys_dataset", help="Physprop_DL dataset", default=Path("../encapsulated_version/data")/Path("ds_descriptors_reaxys_DL.csv"), nargs='?')
     parser.add_argument("physprop_dataset", help="Physprop_DL dataset", default=Path("../encapsulated_version/data")/Path("ds_descriptors_physprop_DL.csv"), nargs='?')
