@@ -10,19 +10,18 @@ All associated code for MRlogP is freely available to run locally, and additiona
 
 # Requirements
 MRlogP requires the following packages:
-- rdkit (2019.09.x.x)
-- OpenBabel (2.4.x) 
-- numpy (1.19.x)
-- pandas (0.24.x)
-- scikit-learn (0.20.x)
-- TensorFlow (2.2.x)
-- Keras (2.2.x)
+- rdkit (>=2019.09.x.x)
+- OpenBabel (>=2.4.x) 
+- numpy (>=1.19.x)
+- pandas (>=0.24.x)
+- scikit-learn (>=0.20.x)
+- TensorFlow (>=2.2.x)
+- Keras (>=2.2.x)
 
 # Usage
 Before using MRlogP, please make sure the training set cloned from the repo is uncompressed and merged into a complete csv file.
 
-A quickstart example for the prediction of logP on molecules in the example folder using MRlogP is as follows: 
-In terminal:
+A quickstart example for the prediction of logP on molecules in the example folder using MRlogP is as follows: In terminal:
 ```
 python train_mrlogp_model.py
 ```
