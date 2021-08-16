@@ -1,11 +1,12 @@
 # MRlogP
 Neural network-based logP prediction for druglike small molecules.
+
 MRlogP is a neural network-based predictor of small molecule lipophilicity (logP), created using transfer learning techniques, demonstrating accurate physicochemical property prediction through training on a large amount of low accuracy, predicted logP values before final tuning using a small accurate dataset of 244 druglike molecules. MRlogP is capable of outperforming state of the art freely available logP prediction methods for druglike small molecules, achieving an average RMSE of 0.988 and 0.715 against druglike molecules from Reaxys and PHYSPROP datasets respectively.
 
 All associated code for MRlogP is freely available to run locally, and additionally available as a simple and easy to use online web-based tool at https://similaritylab.bio.ed.ac.uk/mrlogp.
 
 
-![MRlogP structure](https://raw.githubusercontent.com/JustinYKC/MRlogP/master/20210723_dnn_structure.png)
+![MRlogP structure](https://raw.githubusercontent.com/JustinYKC/MRlogP/master/20210723_dnn_structure.png "MRlogP structure")
 
 # Requirements
 MRlogP requires the following packages:
