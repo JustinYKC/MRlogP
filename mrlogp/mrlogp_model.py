@@ -1,5 +1,3 @@
-from numpy.core.fromnumeric import shape
-from sklearn.utils import validation
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 from tensorflow.compat.v1.keras.backend import set_session
@@ -14,11 +12,8 @@ from tensorflow.compat.v1.keras.layers import PReLU
 from tensorflow.compat.v1.keras.models import load_model
 import numpy as np
 from .metrics import *
-import time, os
+import os
 from pathlib import Path
-
-#XXX Check imports above are actually used
-#XXX Add data types to function arguments
 
 class Model(object):
     """
@@ -114,7 +109,6 @@ class Model(object):
         model_2_on_1.summary()
         print ("\n-----------------------------------------------------------------------------------------------")
         print (f"Epochs for training new output layer:{epoch_1}, No. unfrozen layers:{unfr_layer}, Epochs for fine-tuning unfrozen layers:{epoch_2}")
-        time.sleep(5) # Allow the user to read the terminal output
 
         #Optimise the new output layer
         model_2_on_1.fit(X_train, y_train, epochs=epoch_1)
@@ -135,7 +129,5 @@ class Model(object):
         
     @staticmethod
     def load_predictor(model_file:Path):
-        # XXX Check if string, if so, cast to path, check file exists, if not raise error.
-            #model=Model(model_file.parent)
             classifier = load_model(model_file, custom_objects={'root_mean_squared_error': root_mean_squared_error})
             return classifier

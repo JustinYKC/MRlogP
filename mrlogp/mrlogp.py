@@ -1,12 +1,9 @@
-import os
 from itertools import product as iterproduct
-from numpy.lib.arraypad import _set_reflect_both
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
 from sklearn.utils import shuffle
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
@@ -35,26 +32,18 @@ class MRlogP():
     """   
     scaler=None
     y_class=None
-    hyperparameter_options = {'droprate':[0.2], 
+    hyperparameter_options = {'droprate':[0.1], 
                               'hidden_layers':[1],
                               'hidden_nodes':[1264], 
                               'learning_rate':[0.0001],
-                              'batch_size':[32,64], 
-                              'epochs':[2],
+                              'batch_size':[32], 
+                              'epochs':[30],
                               }
-    '''
     tl_parameter_options = {'epochs_for_output_layer':[1,2,3,4,5],
                             'epoch_for_tweaking':[1,2,3,4,5],
                             'learnrate_on_tweaking':[1.31E-5],
                             'unfrozen_layers':[2,1],
                             'batch_size':[64,128],
-                            }
-    '''
-    tl_parameter_options = {'epochs_for_output_layer':[1,2],
-                            'epoch_for_tweaking':[1,2],
-                            'learnrate_on_tweaking':[1.31E-5],
-                            'unfrozen_layers':[2,1],
-                            'batch_size':[64],
                             }
     def __init__(self) -> None:
         pass
