@@ -27,7 +27,7 @@ python train_mrlogp_model.py pred_logP
 ```
 Other functions are able to be performed using the parameters in train_mrlogp_model.py. Please see the parameters and the sub-parameters of which as well as  examples below for further uses:
 
-## Parameters
+### Parameters
 *   `para_scan` *(Required)* Perform hyperparameter scan with given a set of hyperparameter combinations using gird search.
     *   `-ld, --large_dataset` *(Optional, default=`./datasets/ds_descriptors_500K_DL.csv`)* Dataset containing MRlogP descriptors and logPs used for model training. 
     *   `-para_dict, --hyperparameter_dict` *(Optional, default=`./example/hyperparameter_list.txt`)* A file contains a dictionary includes set hyperparameters used to perform hyperparameter scan.
@@ -52,7 +52,7 @@ Other functions are able to be performed using the parameters in train_mrlogp_mo
     *   `-ld, --large_dataset` *(Optional, default=`./datasets/ds_descriptors_500K_DL.csv`)* Dataset containing MRlogP descriptors and logPs used for model training.
     *   `-q_mol, --query_file` *(Optional, default=`./example/sample_5cpd.csv`)* Descriptor file of query compounds for the logP prediction.
     *   `-mod_file, --model_file` *(Optional, default=`./example/models/mrlogp_model.hdf5`)* The path of the model used as the predictor performing logP prediction.
-## Examples
+### Examples
 Example 1: Hyperparameter scan 
 ```
 #Hyperparameter scan with the default setting
