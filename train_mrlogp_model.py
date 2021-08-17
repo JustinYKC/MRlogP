@@ -1,6 +1,6 @@
 """
 This program provides users with the procedures for easily doing the hyperparameter scan, cross validation, and transfer training using MRLogP package. 
-This also allows users to use their own data set and hyperparameters in the procedures above. Other than training procedures, molecular logP can be 
+This also allows users to use their own data set and hyperparameters in the procedures above. Other than training procedures, molecular logPs can be 
 directly predicted by MRLogP using this program.
 
 By Yan-Kai Chen- justin9300454@gmail.com
