@@ -1,0 +1,5 @@
+Cc1cc2c(cc1C)NC(=O)C[C@H]2c1ccccc1OC    query_cpd_1
+COc1ccc2c(c1)O[C@@](CC2=O)(C(F)(F)F)O   query_cpd_2
+CN(C)c1ccc(cc1)C(=C)c1ccc(cc1)N(C)C     query_cpd_3
+Cc1ccc(o1)[C@H](C#CC(c1ccccc1)(c1ccccc1)O)O     query_cpd_4
+CC(C)(C)c1cc(n[nH]1)Cc1ccccc1   query_cpd_5
