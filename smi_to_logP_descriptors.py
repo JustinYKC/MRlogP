@@ -28,7 +28,7 @@ class MRLogPDescriptor_Generator:
     def write_mrlogp_descriptor_csv(self, input_sdf_filepath:Path, output_csv_filepath:Path):
         assert input_sdf_filepath.exists(), f"Input SMI {input_sdf_filepath} not found"
         assert not output_csv_filepath.exists(), f"Targeted output CSV file {output_csv_filepath} exists!"
-        mols=[(smiles, id) for smiles, id in [line.replace("\t", " ").strip().split(" ",1) for line in open(input_sdf_filepath).readlines() if len(line)>3]]
+        mols=[(smiles, id.strip()) for smiles, id in [line.replace("\t", " ").strip().split(" ",1) for line in open(input_sdf_filepath).readlines() if len(line)>3]]
         
         obConversion=openbabel.OBConversion()
         obConversion.SetInAndOutFormats("smi", "mdl")
@@ -40,7 +40,7 @@ class MRLogPDescriptor_Generator:
 
         for mol in mols:
             # Create RDKit and OpenBabel molecules
-            rdkit_mol=Chem.AddHs(self.rdkonf.smiles_to_3d_mol(mol[0]))
+            rdkit_mol=Chem.AddHs(self.rdkonf.smiles_to_3dmol(mol[0], mol[1]))
             obConversion.ReadString(ob_mol, mol[0])
             
             # Generate Morgan/ECFP4
