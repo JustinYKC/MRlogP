@@ -88,6 +88,11 @@ python train_mrlogp_model.py t_train -md ./datasets/ds_descriptors_physprop_DL.c
 ```
 Example 5: LogP Prediction 
 ```
+#Predict molecular logP on the SMILES file in the example folder using the mrlogP model
+python smi_to_logP_descriptors.py ./example/sample_5cpd_from_SMILES.smi 
+
+python train_mrlogp_model.py pred_logp -q_mol ./example/sample_5cpd_from_SMILES.csv
+
 #Predict logP on 1 molecule in the example folder using the mrlogP consensus model
 python train_mrlogp_model.py pred_logp -q_mol ./example/sample_1cpd.csv -mod_file ./example/mrlogP_model_consensus.hdf5
 ```
