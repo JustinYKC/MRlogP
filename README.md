@@ -99,3 +99,6 @@ python train_mrlogp_model.py pred_logp -q_mol ./example/sample_1cpd.csv -mod_fil
 
 # License
 [MIT License](https://raw.githubusercontent.com/JustinYKC/MRlogP/master/LICENSE)
+
+# Cite
+Chen, Yan-Kai, Steven Shave, and Manfred Auer. 2021. "MRlogP: Transfer Learning Enables Accurate logP Prediction Using Small Experimental Training Datasets" Processes 9, no. 11: 2029. [https://doi.org/10.3390/pr9112029](https://doi.org/10.3390/pr9112029) 
